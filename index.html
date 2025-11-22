@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meeting Attendance Logger v2.3-PWA</title>
+
+<!-- ============================
+     EMBEDDED MANIFEST.JSON
+     ============================ -->
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTWVldGluZyBBdHRlbmRhbmNlIExvZ2dlciIsInNob3J0X25hbWUiOiJNVEcgTE9HIiwiaWNvbnMiOlt7InNyYyI6Ii9pY29uLTE5Mi5wbmciLCJzaXplIjoiMTkyeDE5MiIsInR5cGUiOiJpbWFnZS9wbmcifSx7InNyYyI6Ii9pY29uLTUxMi5wbmciLCJzaXplIjoiNTEyeDUxMiIsInR5cGUiOiJpbWFnZS9wbmcifSx7InNyYyI6Ii9pY29uLTMyLnBuZyIsInNpemUiOiIzMngzMiIsInR5cGUiOiJpbWFnZS9wbmcifV0sImJhY2tncm91bmRfY29sb3IiOiIjZmZmZmZmIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJvcmllbnRhdGlvbiI6InBvcnRyYWl0IiwiYmFja2dyb3VuZF9yZWFkIjoiI2ZmZmZmZiIsInRoZW1lX2NvbG9yIjoiI2ZmZmZmZiIsInN0YXJ0X3VybCI6Ii8ifQ==" />
+
+<!-- ============================
+     INLINE SERVICE WORKER LOADER
+     ============================ -->
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    const swCode = `
+      self.addEventListener('install', e=>{
+        e.waitUntil(
+          caches.open('mal-v22').then(cache=>{
+            return cache.addAll(['./']);
+          })
+        );
+      });
+      self.addEventListener('fetch', e=>{
+        e.respondWith(
+          caches.match(e.request).then(r=> r || fetch(e.request))
+        );
+      });
+    `;
+    const blob = new Blob([swCode], {type:'text/javascript'});
+    const swURL = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(swURL);
+  });
+}
+</script>
+
+<!-- ============================
+     ICONS (BASE64 EMBEDDED)
+     White background, blue #0055AA, 2-line MTG / LOG
+     ============================ -->
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAAAenBgAAAA..." />
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICA..." />
+
+<!-- ============================
+     BEGIN CSS
+     ============================ -->
+<style>
+body{
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #f0f2f5;
+}
+header{
+  background: #1f4e8c;
+  color: #fff;
+  padding: 20px;
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: bold;
+}
+footer{
+  text-align: center;
+  font-size: .9rem;
+  padding: 20px;
+  margin-top: 40px;
+  background: #eee;
+  color: #333;
+}
+.container{
+  width: 95%;
+  max-width: 1300px;
+  margin: 20px auto;
+}
+h2{
+  margin: 0 0 10px 0;
+  padding: 0;
+}
+/* ============================
+   CARDS & ROW LAYOUT
+   ============================ */
+.row{
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.card{
+  background: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  flex: 1;
+  min-width: 300px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  border: 1px solid #ddd;
+}
+
+/* ============================
+   BUTTONS
+   ============================ */
+.btn{
+  background: #1f4e8c;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin: 3px;
+  font-size: .9rem;
+}
+.btn-secondary{
+  background: #555;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin: 3px;
+  font-size: .9rem;
+}
+.btn-danger{
+  background: #b30000;
+  color: #fff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: .8rem;
+}
+
+/* ============================
+   TABLES & INPUTS
+   ============================ */
+table{
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: .9rem;
+}
+th, td{
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: left;
+}
+th{
+  background: #e9edf5;
+}
+input, select, textarea{
+  width: 100%;
+  padding: 6px;
+  margin: 4px 0 10px 0;
+  box-sizing: border-box;
+}
+textarea{
+  height: 150px;
+  resize: vertical;
+}
+
+/* ============================
+   MODALS (v1.7.4 restored)
+   ============================ */
+.modal{
+  display: none;
+  position: fixed;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,.5);
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.modal-content{
+  background: #fff;
+  padding: 20px;
+  width: 90%;
+  max-width: 800px;
+  border-radius: 10px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.modal-content h2{
+  position: sticky;
+  top: 0;
+  background: #fff;
+  padding: 10px 0;
+  margin-top: -10px;
+  z-index: 10;
+}
+pre{
+  white-space: pre-wrap;
+  font-size: .85rem;
+  background: #f8f8f8;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+/* ============================
+   AUDIO REC DOT
+   ============================ */
+#recDot{
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: red;
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  opacity: 0;
+}
+
+/* ============================
+   MOBILE
+   ============================ */
+@media(max-width:600px){
+  .row{
+    flex-direction: column;
+  }
+  .card{
+    min-width: 100%;
+  }
+}
+</style>
+</head>
+
+<body>
+<header>Meeting Attendance Logger v2.3-PWA</header>
+
+<div class="container">
+
+<!-- ============================
+     MEETING DETAILS
+     ============================ -->
+<div class="row">
+  <div class="card">
+    <h2>Meeting Details</h2>
+
+    <label>Meeting Name</label>
+    <input id="meetingName" />
+
+    <label>Date</label>
+    <input type="date" id="meetingDate" />
+
+    <label>Start Time</label>
+    <input type="time" id="meetingTime" />
+
+    <label>Duration (hours)</label>
+    <input type="number" id="meetingDuration" step="0.25" />
+
+    <label>Location</label>
+    <input id="meetingLocation" />
+
+    <label>Meeting Type</label>
+    <select id="meetingType">
+      <option>In Person</option>
+      <option>Online</option>
+      <option>Hybrid</option>
+    </select>
+
+    <label>Notes</label>
+    <textarea id="meetingNotes"></textarea>
+
+    <button class="btn-secondary" onclick="resetMeeting()">Start New Meeting</button>
+  </div>
+</div>
+
+<!-- ============================
+     SESSION & ARCHIVE TOOLS
+     ============================ -->
+<div class="card" id="sessionCard">
+  <h2>Session & Archive Tools</h2>
+
+  <button class="btn" onclick="saveSessionJSON()">Save Session (JSON)</button>
+  <input type="file" id="loadSessionFile" accept=".json"
+         style="display:none" onchange="loadSessionJSON(event)">
+  <button class="btn-secondary"
+          onclick="document.getElementById('loadSessionFile').click()">
+    Load Session (JSON)
+  </button>
+
+  <hr>
+
+  <button class="btn" onclick="archiveMeeting()">Save to Archive</button>
+  <select id="archiveSelect" style="margin-top:8px"></select>
+  <button class="btn-secondary" onclick="loadArchive()">Load Archive</button>
+  <button class="btn-danger" onclick="deleteArchive()">Delete Archive</button>
+</div>
+<!-- ============================
+     ATTENDEES
+     ============================ -->
+<div class="row">
+  <div class="card">
+    <h2>Add / Manage Attendees</h2>
+
+    <!-- Save / Load Attendees JSON -->
+    <div style="margin-bottom:10px;">
+      <button class="btn-secondary" onclick="saveAttendeesJSON()">Save Attendees (.json)</button>
+
+      <input type="file" id="loadAttendeesFile" accept=".json"
+             style="display:none" onchange="loadAttendeesJSON(event)">
+
+      <button class="btn-secondary"
+              onclick="document.getElementById('loadAttendeesFile').click()">
+        Load Attendees (.json)
+      </button>
+
+      <button class="btn-secondary" onclick="saveAttendeesCSV()">Save Attendees (.csv)</button>
+
+      <input type="file" id="loadAttendeesCSVFile" accept=".csv"
+             style="display:none" onchange="loadAttendeesCSV(event)">
+
+      <button class="btn-secondary"
+              onclick="document.getElementById('loadAttendeesCSVFile').click()">
+        Load Attendees (.csv)
+      </button>
+    </div>
+
+    <label>First Name</label><input id="firstName">
+    <label>Last Name</label><input id="lastName">
+    <label>Position</label><input id="position">
+    <label>Member ID</label><input id="memberId">
+    <label>Squadron</label><input id="squadron">
+
+    <button class="btn" onclick="addAttendee()">Add Attendee</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Last</th>
+          <th>First</th>
+          <th>Position</th>
+          <th>Member ID</th>
+          <th>Squadron</th>
+          <th>Hours</th>
+          <th>Attended</th>
+        </tr>
+      </thead>
+      <tbody id="attendeeTable"></tbody>
+    </table>
+
+  </div>
+</div>
+
+<!-- ============================
+     MINUTES & TIMELINE
+     ============================ -->
+<div class="row">
+
+  <div class="card">
+    <h2>Minutes</h2>
+    <button class="btn" onclick="openMinutes()">Open Minutes Editor</button>
+  </div>
+
+  <div class="card">
+    <h2>Timeline</h2>
+    <button class="btn" onclick="openTimeline()">Open Timeline</button>
+  </div>
+
+</div>
+
+<!-- ============================
+     REPORTS
+     ============================ -->
+<div class="row">
+  <div class="card">
+    <h2>Reports</h2>
+    <button class="btn" onclick="openReportOptions()">Open Report Options</button>
+  </div>
+</div>
+
+<!-- ============================
+     MINUTES MODAL (v1.7.4 layout)
+     ============================ -->
+<div class="modal" id="minutesModal">
+  <div class="modal-content">
+    <h2>Minutes Editor</h2>
+    <textarea id="minutesArea"></textarea>
+
+    <button class="btn" onclick="insertMinutesTimestamp()">Insert Timestamp</button>
+    <button class="btn" onclick="exportMinutesTXT()">Export TXT</button>
+    <button class="btn-secondary" onclick="clearMinutes()">Clear</button>
+    <button class="btn-secondary" onclick="closeMinutes()">Close</button>
+  </div>
+</div>
+
+<!-- ============================
+     TIMELINE MODAL
+     ============================ -->
+<div class="modal" id="timelineModal">
+  <div class="modal-content">
+    <h2>Timeline Editor</h2>
+
+    <label>Description</label>
+    <input id="timelineDesc">
+
+    <label>Type</label>
+    <select id="timelineType">
+      <option>Info</option>
+	  <option>Meeting Start</option>
+	  <option>Meeting Terminated</option>
+	  <option>Next Meeting</option>
+	  <option>Motion</option>
+	  <option>Motion Seconded</option>
+	  <option>Vote</option>
+	  <option>Rollcall</option>
+      <option>Decision</option>
+      <option>Action</option>
+    </select>
+
+    <button class="btn" onclick="addTimelineEntry()">Add Entry</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="timelineTable"></tbody>
+    </table>
+
+    <button class="btn-secondary" onclick="closeTimeline()">Close</button>
+  </div>
+</div>
+
+<!-- ============================
+     REPORTS MODAL
+     ============================ -->
+<div class="modal" id="reportModal">
+  <div class="modal-content">
+    <h2>Meeting Reports</h2>
+
+    <p>Select format:</p>
+    <button class="btn" onclick="generateHTMLReport()">HTML Report</button>
+    <button class="btn" onclick="generateTXTReport()">TXT Report</button>
+
+    <button class="btn-secondary" onclick="closeReportOptions()">Close</button>
+  </div>
+</div>
+
+<!-- ============================
+     AUDIO RECORDER PANEL
+     ============================ -->
+<div class="row">
+  <div class="card" style="position:relative;">
+    <h2>Audio Recorder</h2>
+
+    <!-- blinking REC dot -->
+    <div id="recDot"></div>
+
+    <button class="btn" onclick="startAudioRecording()">Start Recording</button>
+    <button class="btn-secondary" onclick="stopAudioRecording()">Stop Recording</button>
+
+    <p style="font-size:0.85rem;color:#555;margin-top:6px;">
+      Recordings download automatically and are stored in this session.
+    </p>
+  </div>
+</div>
+
+</div> <!-- end container -->
+
+<footer>
+  Meeting Attendance Logger v2.3-PWA — © 2025 Glen Carruthers
+</footer>
+
+<!-- ============================
+     BEGIN JAVASCRIPT ENGINE
+     ============================ -->
+<script>
+const APP_VERSION = "2.2";
+let attendees = [];
+let minutesText = "";
+let timeline = [];
+let audioBlobs = [];
+let archiveStore = {};
+let mediaRecorder = null;
+let audioChunks = [];
+
+/* Utility */
+function $(id){ return document.getElementById(id); }
+
+function nowTimestamp(){
+  const d = new Date();
+  return (
+    d.getFullYear() + "-" +
+    String(d.getMonth()+1).padStart(2,"0") + "-" +
+    String(d.getDate()).padStart(2,"0") + "_" +
+    String(d.getHours()).padStart(2,"0") + "-" +
+    String(d.getMinutes()).padStart(2,"0") + "-" +
+    String(d.getSeconds()).padStart(2,"0")
+  );
+}
+
+function clockTimestamp(){
+  return new Date().toLocaleTimeString();
+}
+/* ============================
+   RESET MEETING
+   ============================ */
+function resetMeeting(){
+  if(!confirm("Start a new meeting and clear current data?")) return;
+
+  $("meetingName").value = "";
+  $("meetingDate").value = "";
+  $("meetingTime").value = "";
+  $("meetingDuration").value = "";
+  $("meetingLocation").value = "";
+  $("meetingType").value = "In Person";
+  $("meetingNotes").value = "";
+
+  attendees = [];
+  minutesText = "";
+  timeline = [];
+  audioBlobs = [];
+
+  if ($("minutesArea")) $("minutesArea").value = "";
+
+  renderTable();
+  renderTimeline();
+}
+
+/* ============================
+   ATTENDEE FUNCTIONS
+   ============================ */
+function addAttendee(){
+  const a = {
+    firstName: $("firstName").value.trim(),
+    lastName:  $("lastName").value.trim(),
+    position:  $("position").value.trim(),
+    memberId:  $("memberId").value.trim(),
+    squadron:  $("squadron").value.trim(),
+    attended:  false,
+    hours:     0
+  };
+
+  if(!a.lastName){
+    alert("Last Name required");
+    return;
+  }
+
+  attendees.push(a);
+
+  $("firstName").value = "";
+  $("lastName").value  = "";
+  $("position").value  = "";
+  $("memberId").value  = "";
+  $("squadron").value  = "";
+
+  renderTable();
+}
+
+function toggleAttended(i){
+  attendees[i].attended = !attendees[i].attended;
+  renderTable();
+}
+
+function renderTable(){
+  const body = $("attendeeTable");
+  if(!body) return;
+
+  body.innerHTML = "";
+  const hrs = parseFloat($("meetingDuration").value) || 0;
+
+  attendees.forEach((a,i)=>{
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${a.lastName}</td>
+      <td>${a.firstName}</td>
+      <td>${a.position}</td>
+      <td>${a.memberId}</td>
+      <td>${a.squadron}</td>
+      <td>${a.attended ? hrs : ""}</td>
+      <td><input type="checkbox" ${a.attended?"checked":""}
+                 onchange="toggleAttended(${i})"></td>
+    `;
+
+    body.appendChild(tr);
+  });
+}
+
+/* Save / Load attendee JSON */
+function saveAttendeesJSON(){
+  const data = JSON.stringify(attendees, null, 2);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([data], {type:"application/json"}));
+  a.download = "attendees_" + nowTimestamp() + ".json";
+  a.click();
+}
+
+function loadAttendeesJSON(evt){
+  const f = evt.target.files[0];
+  if(!f) return;
+
+  const r = new FileReader();
+  r.onload = e=>{
+    try{
+      const data = JSON.parse(e.target.result);
+
+      // Accept BOTH formats:
+      // 1) Straight array
+      // 2) Session-style object with .attendees[]
+      attendees = Array.isArray(data) ? data :
+                  Array.isArray(data.attendees) ? data.attendees :
+                  [];
+
+      if(attendees.length === 0){
+        alert("Invalid attendee JSON file");
+        return;
+      }
+
+      renderTable();
+    }catch{
+      alert("Invalid attendee JSON file");
+    }
+  };
+
+  r.readAsText(f);
+  evt.target.value = "";
+}
+
+
+
+/* ============================
+   CSV SAVE / LOAD
+   ============================ */
+function saveAttendeesCSV(){
+  if(attendees.length === 0){
+    alert("No attendees to save.");
+    return;
+  }
+
+  const header = "lastName,firstName,position,memberId,squadron,attended\n";
+
+  const rows = attendees.map(a =>
+    [
+      a.lastName,
+      a.firstName,
+      a.position,
+      a.memberId,
+      a.squadron,
+      a.attended ? "TRUE" : "FALSE"
+    ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")
+  ).join("\n");
+
+  const csv = header + rows;
+
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "attendees_" + nowTimestamp() + ".csv";
+  a.click();
+}
+
+function loadAttendeesCSV(evt){
+  const f = evt.target.files[0];
+  if(!f) return;
+
+  const reader = new FileReader();
+
+  reader.onload = e=>{
+    const lines = e.target.result.split(/\r?\n/);
+    const header = lines.shift();
+
+    attendees = [];
+
+    for(const line of lines){
+      if(!line.trim()) continue;
+
+      const cols = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)
+                  ?.map(v => v.replace(/^"|"$/g,"").replace(/""/g,'"'));
+
+      if(!cols || cols.length < 6) continue;
+
+      attendees.push({
+        lastName:  cols[0],
+        firstName: cols[1],
+        position:  cols[2],
+        memberId:  cols[3],
+        squadron:  cols[4],
+        attended:  cols[5].toUpperCase() === "TRUE",
+        hours: 0
+      });
+    }
+
+    renderTable();
+  };
+
+  reader.readAsText(f);
+  evt.target.value = "";
+}
+
+/* ============================
+   MINUTES
+   ============================ */
+function openMinutes(){
+  $("minutesArea").value = minutesText;
+  $("minutesModal").style.display = "flex";
+}
+
+function closeMinutes(){
+  minutesText = $("minutesArea").value;
+  $("minutesModal").style.display = "none";
+}
+
+function insertMinutesTimestamp(){
+  $("minutesArea").value += "\n[" + clockTimestamp() + "] ";
+}
+
+function clearMinutes(){
+  if(confirm("Clear minutes?")){
+    $("minutesArea").value = "";
+  }
+}
+
+function exportMinutesTXT(){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(
+    new Blob([$(`minutesArea`).value], {type:"text/plain"})
+  );
+  a.download = "minutes_" + nowTimestamp() + ".txt";
+  a.click();
+}
+
+/* ============================
+   TIMELINE
+   ============================ */
+function openTimeline(){
+  $("timelineModal").style.display = "flex";
+  renderTimeline();
+}
+
+function closeTimeline(){
+  $("timelineModal").style.display = "none";
+}
+
+function addTimelineEntry(){
+  const desc = $("timelineDesc").value.trim();
+
+  if(!desc){
+    alert("Description required");
+    return;
+  }
+
+  const type = $("timelineType").value;
+
+  timeline.push({
+    time: clockTimestamp(),
+    type,
+    desc
+  });
+
+  $("timelineDesc").value = "";
+  renderTimeline();
+}
+
+function deleteTimelineEntry(i){
+  if(confirm("Delete this timeline entry?")){
+    timeline.splice(i,1);
+    renderTimeline();
+  }
+}
+
+function renderTimeline(){
+  const body = $("timelineTable");
+  if(!body) return;
+
+  body.innerHTML = "";
+
+  timeline.forEach((t,i)=>{
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${t.time}</td>
+      <td>${t.type}</td>
+      <td>${t.desc}</td>
+      <td><button class="btn-danger" onclick="deleteTimelineEntry(${i})">X</button></td>
+    `;
+
+    body.appendChild(tr);
+  });
+}
+
+/* ============================
+   SESSION + ARCHIVE
+   ============================ */
+function buildSessionObject(){
+  return {
+    version: APP_VERSION,
+    saved: nowTimestamp(),
+    meeting: {
+      name:     $("meetingName").value,
+      date:     $("meetingDate").value,
+      time:     $("meetingTime").value,
+      duration: $("meetingDuration").value,
+      location: $("meetingLocation").value,
+      type:     $("meetingType").value,
+      notes:    $("meetingNotes").value
+    },
+    attendees,
+    minutes: minutesText,
+    timeline,
+    audio: audioBlobs
+  };
+}
+
+function saveSessionJSON(){
+  const data = JSON.stringify(buildSessionObject(), null, 2);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([data], {type:"application/json"}));
+  a.download = "session_" + nowTimestamp() + ".json";
+  a.click();
+}
+
+function loadSessionJSON(evt){
+  const f = evt.target.files[0];
+  if(!f) return;
+
+  const r = new FileReader();
+  r.onload = e=>{
+    try{
+      const d = JSON.parse(e.target.result);
+
+      attendees   = d.attendees || [];
+      minutesText = d.minutes  || "";
+      timeline    = d.timeline || [];
+      audioBlobs  = d.audio    || [];
+
+      renderTable();
+      renderTimeline();
+    }catch{
+      alert("Invalid session file");
+    }
+  };
+
+  r.readAsText(f);
+  evt.target.value = "";
+}
+/* ============================
+   ARCHIVE (LOCAL STORAGE)
+   ============================ */
+function archiveMeeting(){
+  const key = prompt("Archive name?");
+  if(!key) return;
+
+  archiveStore[key] = buildSessionObject();
+  localStorage.setItem("mal_v22_archive", JSON.stringify(archiveStore));
+  refreshArchiveSelect();
+}
+
+function loadArchiveStore(){
+  archiveStore = JSON.parse(localStorage.getItem("mal_v22_archive") || "{}");
+}
+
+function refreshArchiveSelect(){
+  const sel = $("archiveSelect");
+  sel.innerHTML = "";
+
+  Object.keys(archiveStore).forEach(k=>{
+    const opt = document.createElement("option");
+    opt.value = k;
+    opt.textContent = k;
+    sel.appendChild(opt);
+  });
+}
+
+function loadArchive(){
+  const key = $("archiveSelect").value;
+  if(!key){
+    alert("Nothing selected");
+    return;
+  }
+
+  const d = archiveStore[key];
+  if(!d) return;
+
+  $("meetingName").value     = d.meeting.name;
+  $("meetingDate").value     = d.meeting.date;
+  $("meetingTime").value     = d.meeting.time;
+  $("meetingDuration").value = d.meeting.duration;
+  $("meetingLocation").value = d.meeting.location;
+  $("meetingType").value     = d.meeting.type;
+  $("meetingNotes").value    = d.meeting.notes;
+
+  attendees   = d.attendees || [];
+  minutesText = d.minutes  || "";
+  timeline    = d.timeline || [];
+  audioBlobs  = d.audio    || [];
+
+  renderTable();
+  renderTimeline();
+}
+
+function deleteArchive(){
+  const key = $("archiveSelect").value;
+  if(!key) return;
+
+  if(confirm("Delete this archive?")){
+    delete archiveStore[key];
+    localStorage.setItem("mal_v22_archive", JSON.stringify(archiveStore));
+    refreshArchiveSelect();
+  }
+}
+
+/* Load archive store on startup */
+loadArchiveStore();
+refreshArchiveSelect();
+
+
+/* ============================
+   SIMPLE REPORT BUILDER
+   ============================ */
+function buildSimpleReportText(){
+  const r = buildSessionObject();
+  let out = "";
+
+  out += "MEETING REPORT\n--------------\n\n";
+  out += "Meeting Name: " + r.meeting.name + "\n";
+  out += "Date: " + r.meeting.date + "\n";
+  out += "Time: " + r.meeting.time + "\n";
+  out += "Duration: " + r.meeting.duration + " hours\n";
+  out += "Location: " + r.meeting.location + "\n";
+  out += "Type: " + r.meeting.type + "\n\n";
+  out += "Notes:\n" + (r.meeting.notes||"") + "\n\n";
+
+  out += "ATTENDEES (" + r.attendees.length + "):\n";
+  const sorted = [...r.attendees].sort((a,b)=>a.lastName.localeCompare(b.lastName));
+  sorted.forEach(a=>{
+    const hrs = a.attended ? r.meeting.duration : "";
+    out += " - " + a.lastName + ", " + a.firstName +
+           " (" + a.position + ") - " + a.squadron +
+           " - " + (a.attended?"Attended":"Absent") +
+           (hrs? " - " + hrs + " hrs":"") + "\n";
+  });
+  out += "\n";
+
+  out += "MINUTES:\n";
+  out += (r.minutes || "") + "\n\n";
+
+  out += "TIMELINE:\n";
+  r.timeline.forEach(t=>{
+    out += t.time + " — " + t.type + " — " + t.desc + "\n";
+  });
+
+  return out;
+}
+
+/* ============================
+   REPORTS
+   ============================ */
+function openReportOptions(){
+  $("reportModal").style.display = "flex";
+}
+
+function closeReportOptions(){
+  $("reportModal").style.display = "none";
+}
+
+
+function generateHTMLReport(){
+  $("reportModal").style.display = "none";
+  const report = buildSimpleReportText();
+  const html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Meeting Report</title></head><body><pre>" +
+               report.replace(/&/g,"&amp;").replace(/</g,"&lt;") +
+               "</pre></body></html>";
+  const blob = new Blob([html], {type:"text/html;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank");
+}
+
+
+
+function generateTXTReport(){
+  $("reportModal").style.display = "none";
+  const report = buildSimpleReportText();
+  const blob = new Blob([report], {type:"text/plain;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "meeting_report_" + nowTimestamp() + ".txt";
+  a.click();
+}
+
+
+function escapeHTML(str){
+  return str.replace(/[&<>]/g, c =>
+    ({ "&":"&amp;","<":"&lt;","&gt;":"&gt;" }[c] || c)
+  );
+}
+
+/* ============================
+   AUDIO RECORDER
+   ============================ */
+async function startAudioRecording(){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = saveAudioFile;
+
+    mediaRecorder.start();
+    blinkRec(true);
+  }catch(err){
+    alert("Microphone blocked or unavailable");
+  }
+}
+
+function stopAudioRecording(){
+  if(mediaRecorder){
+    mediaRecorder.stop();
+    blinkRec(false);
+  }
+}
+
+function saveAudioFile(){
+  const blob = new Blob(audioChunks, {type:"audio/webm"});
+  const filename = "audio_" + nowTimestamp() + ".webm";
+
+  audioBlobs.push({name: filename});
+
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+let recAnimation = null;
+
+function blinkRec(on){
+  const dot = $("recDot");
+  if(!dot) return;
+
+  if(on){
+    dot.style.opacity = 1;
+
+    // Stop existing animation if any
+    if(recAnimation) recAnimation.cancel();
+
+    recAnimation = dot.animate(
+      [{opacity:1},{opacity:0}],
+      {duration:600, iterations:Infinity}
+    );
+
+  } else {
+    dot.style.opacity = 0;
+
+    if(recAnimation){
+      recAnimation.cancel();
+      recAnimation = null;
+    }
+  }
+}
+
+</script>
+
+</body>
+</html>
+
